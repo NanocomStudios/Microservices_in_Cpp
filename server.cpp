@@ -133,10 +133,11 @@ auto client= new clientDetails();
 
            // for storing the recive message
            char message[1024];
+           int messageLength;
            for(int i=0;i<client->clientList.size();++i){
                  sd=client->clientList[i];
                  if (FD_ISSET(sd, &readfds)){
-                       valread=read(sd, message, 1024);
+                       valread=read(sd, &messageLength, sizeof(int));
                        //check if client disconnected
                        if (valread==0){
                              std::cout<<"client disconnected\n";
@@ -149,6 +150,7 @@ auto client= new clientDetails();
                              /* remove the client from the list */
                              client->clientList.erase(client->clientList.begin()+i);
                        }else{
+                              read(sd, message, messageLength);
                               std::cout<<"message from client: "<<message<<"\n";
                               // write(sd, "hello", 5); // echoing back the message
                               std::thread t1(serviceHandler, message, sd);
@@ -160,4 +162,20 @@ auto client= new clientDetails();
            }
       }
         delete client;
+}
+
+void response(string message,int dt){
+      int messageLength = message.length();
+
+      char* sendBuffer = (char*)calloc(1, messageLength + 4);
+      *(int*)sendBuffer = messageLength;
+
+      int i = 0;
+      for(char x : message){
+         sendBuffer[4 + i] = x;
+         i++;
+      }
+
+      write(dt, sendBuffer, messageLength + 4);
+      free(sendBuffer);
 }

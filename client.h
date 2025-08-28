@@ -1,5 +1,5 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef CLIENT_H
+#define CLIENT_H
 
 #include <arpa/inet.h>  // for ip inet_pton()
 #include <netinet/in.h> // for address
@@ -10,7 +10,6 @@
 #include <string>
 using std::string;
 
-void server(void(*serviceHandler)(string,int));
-void response(string message,int dt);
+string request(string message, string ipAddress, int port);
 
 #endif
