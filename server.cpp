@@ -2,6 +2,11 @@
 
 #include "server.h"
 
+#include <arpa/inet.h>  // for ip inet_pton()
+#include <netinet/in.h> // for address
+#include <sys/select.h> // for io multiplexing (select)
+#include <sys/socket.h> // for socket
+#include <unistd.h>  // for close()
 #include <thread> // for threading
 #include <vector> // for storing client
 /*
@@ -22,14 +27,8 @@ struct clientDetails{
       }
 };
 
-const int port=4277;
-const char ip[]="127.0.0.1"; // for local host
-//const ip[]="0.0.0.0"; // for allowing all incomming connection from internet
-const int backlog=5; // maximum number of connection allowed
 
-
-
-void server(void(*serviceHandler)(std::string,int)){
+void startServer(string ip, int port, void(*serviceHandler)(std::string,int),int backlog){
       // creating a clientDetails object{
       auto client= new clientDetails();
 
@@ -54,7 +53,7 @@ void server(void(*serviceHandler)(std::string,int)){
         struct sockaddr_in serverAddr;
         serverAddr.sin_family=AF_INET;
         serverAddr.sin_port=htons(port);
-        inet_pton(AF_INET, ip, &serverAddr.sin_addr);
+        inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr);
         // binding the server address
         if (bind(client->serverfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr))<0){
             std::cerr<<"bind error\n";

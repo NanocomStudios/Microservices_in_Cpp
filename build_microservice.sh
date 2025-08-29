@@ -1,0 +1,1 @@
+g++ microservice.cpp server.cpp request.cpp -o server
