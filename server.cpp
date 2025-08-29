@@ -31,7 +31,7 @@ const int backlog=5; // maximum number of connection allowed
 
 void server(void(*serviceHandler)(std::string,int)){
       // creating a clientDetails object{
-auto client= new clientDetails();
+      auto client= new clientDetails();
 
       client->serverfd= socket(AF_INET, SOCK_STREAM,0); // for tcp connection
       // error handling
@@ -132,7 +132,7 @@ auto client= new clientDetails();
             */
 
            // for storing the recive message
-           char message[1024];
+           
            int messageLength;
            for(int i=0;i<client->clientList.size();++i){
                  sd=client->clientList[i];
@@ -150,8 +150,11 @@ auto client= new clientDetails();
                              /* remove the client from the list */
                              client->clientList.erase(client->clientList.begin()+i);
                        }else{
-                              read(sd, message, messageLength);
-                              std::cout<<"message from client: "<<message<<"\n";
+                              char buffer[messageLength];
+                              read(sd, buffer, messageLength);
+                              std::string message=buffer;
+
+                              std::cout<<"message from client: "<<message << " in " << messageLength<<"\n";
                               // write(sd, "hello", 5); // echoing back the message
                               std::thread t1(serviceHandler, message, sd);
                               //detach the thread so that it can run independently
@@ -165,7 +168,7 @@ auto client= new clientDetails();
 }
 
 void response(string message,int dt){
-      int messageLength = message.length();
+      int messageLength = message.length() + 1; // +1 for null terminator
 
       char* sendBuffer = (char*)calloc(1, messageLength + 4);
       *(int*)sendBuffer = messageLength;

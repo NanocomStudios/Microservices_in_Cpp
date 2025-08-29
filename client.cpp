@@ -7,7 +7,7 @@ using namespace std;
 
 string request(string message, string ipAddress, int port) {
 
-    int messageLength = message.length();
+    int messageLength = message.length() + 1; // +1 for null terminator
 
     char* sendBuffer = (char*)calloc(1, messageLength + 4);
     *(int*)sendBuffer = messageLength;
@@ -59,7 +59,7 @@ string request(string message, string ipAddress, int port) {
     recv(sock, receiveBuffer, receiveBufferLength, 0);
     string response = receiveBuffer;
     free(receiveBuffer);
-    
+
     // Close socket
     close(sock);
     return response;
