@@ -1,14 +1,43 @@
 #include <iostream>  // for cout/cerr
+#include <stdlib.h>
 
 #include "server.h"
 
-#include <arpa/inet.h>  // for ip inet_pton()
-#include <netinet/in.h> // for address
-#include <sys/select.h> // for io multiplexing (select)
-#include <sys/socket.h> // for socket
-#include <unistd.h>  // for close()
+#if defined(_WIN32) || defined(_WIN64)
+
+      #define WIN32_LEAN_AND_MEAN
+      
+      #ifdef _WIN32_WINNT
+            #undef _WIN32_WINNT
+      #endif
+
+      #define _WIN32_WINNT 0x0600
+      #include <windows.h>
+      #include <winsock2.h>
+      #include <ws2tcpip.h>
+
+      #pragma comment (lib, "Ws2_32.lib")
+
+      #define SOCKET_TYPE SOCKET
+
+      WSADATA SwsaData;
+      int SiResult;
+
+#elif defined(__linux__)
+
+    #include <arpa/inet.h>  // for ip inet_pton()
+    #include <netinet/in.h> // for address
+    #include <sys/select.h> // for io multiplexing (select)
+    #include <sys/socket.h> // for socket
+    #include <unistd.h>  // for close()
+
+    #define SOCKET_TYPE int
+#endif
+
+
 #include <thread> // for threading
 #include <vector> // for storing client
+
 /*
  consider adding thread if handling multiple client 
  simultaneously  for sending and reciving data at the same time
@@ -17,6 +46,7 @@
  structure to encapsulate data of client this make easy to
  passing the argument to new thread;
 */
+
 struct clientDetails{
       int32_t clientfd;  // client file descriptor
       int32_t serverfd;  // server file descriptor
@@ -29,47 +59,106 @@ struct clientDetails{
 
 
 void startServer(string ip, int port, void(*serviceHandler)(std::string,SOCKET_TYPE),int backlog){
+
+      #if defined(_WIN32) || defined(_WIN64)
+            SiResult = WSAStartup(MAKEWORD(2, 2), &SwsaData);
+            if (SiResult != 0) {
+                  printf("WSAStartup failed with error: %d\n", SiResult);
+                  return;
+            }
+            SOCKET sock = 0;
+      #endif
+
       // creating a clientDetails object{
       auto client= new clientDetails();
 
       client->serverfd= socket(AF_INET, SOCK_STREAM,0); // for tcp connection
       // error handling
-      if (client->serverfd<=0){
-            std::cerr<<"socket creation error\n";
-         delete client;
-            exit(1);
-      }else{
-            std::cout<<"socket created\n";
-      }
+
+      #if defined(_WIN32) || defined(_WIN64)
+            if (client->serverfd==INVALID_SOCKET){
+                  std::cerr<<"socket creation error\n";
+                  WSACleanup();
+                  delete client;
+                  exit(1);
+            }else{
+                  std::cout<<"socket created\n";
+            }
+      #elif defined(__linux__)
+            if (client->serverfd<=0){
+                  std::cerr<<"socket creation error\n";
+                  delete client;
+                  exit(1);
+            }else{
+                  std::cout<<"socket created\n";
+            }
+      #endif
        // setting serverFd to allow multiple connection
        int opt=1;
-      if (setsockopt(client->serverfd,SOL_SOCKET,SO_REUSEADDR, (char*)&opt, sizeof opt)<0){
-            std::cerr<<"setSocketopt error\n";
-        delete client;
-            exit(2);
-      }
+
+      #if defined(_WIN32) || defined(_WIN64)
+            if (setsockopt(client->serverfd,SOL_SOCKET,SO_REUSEADDR, (char*)&opt, sizeof opt)==SOCKET_ERROR){
+                  std::cerr<<"setSocketopt error\n";
+                  closesocket(client->serverfd);
+                  WSACleanup();
+                  delete client;
+                  exit(2);
+            }
+      #elif defined(__linux__)
+            if (setsockopt(client->serverfd,SOL_SOCKET,SO_REUSEADDR, (char*)&opt, sizeof opt)<0){
+                  std::cerr<<"setSocketopt error\n";
+            delete client;
+                  exit(2);
+            }
+      #endif
 
         // setting the server address
         struct sockaddr_in serverAddr;
         serverAddr.sin_family=AF_INET;
         serverAddr.sin_port=htons(port);
         inet_pton(AF_INET, ip.c_str(), &serverAddr.sin_addr);
+
         // binding the server address
-        if (bind(client->serverfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr))<0){
-            std::cerr<<"bind error\n";
-            delete client;
-            exit(3);
-        }else{
-              std::cout<<"server binded\n";
-        }
-        // listening to the port
-        if (listen(client->serverfd, backlog)<0){
-            std::cerr<<"listen error\n";
-            delete client;
-            exit(4);
-        }else{
-                std::cout<<"server is listening\n";
-        }
+      #if defined(_WIN32) || defined(_WIN64)
+            if (bind(client->serverfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr))==SOCKET_ERROR){
+                  std::cerr<<"bind error\n";
+                  closesocket(client->serverfd);
+                  WSACleanup();
+                  delete client;
+                  exit(3);
+            }else{
+                  std::cout<<"server binded\n";
+            }
+      #elif defined(__linux__)
+            if (bind(client->serverfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr))<0){
+                  std::cerr<<"bind error\n";
+                  delete client;
+                  exit(3);
+            }else{
+                  std::cout<<"server binded\n";
+            }
+      #endif
+
+      #if defined(_WIN32) || defined(_WIN64)
+            if (listen(client->serverfd, backlog)==SOCKET_ERROR){
+                  std::cerr<<"listen error\n";
+                  closesocket(client->serverfd);
+                  WSACleanup();
+                  delete client;
+                  exit(4);
+            }else{
+                  std::cout<<"server is listening\n";
+            }
+      #elif defined(__linux__)
+            // listening to the port
+            if (listen(client->serverfd, backlog)<0){
+                  std::cerr<<"listen error\n";
+                  delete client;
+                  exit(4);
+            }else{
+                  std::cout<<"server is listening\n";
+            }
+      #endif 
 
         fd_set readfds;
         size_t  valread;
@@ -136,7 +225,7 @@ void startServer(string ip, int port, void(*serviceHandler)(std::string,SOCKET_T
            for(int i=0;i<client->clientList.size();++i){
                  sd=client->clientList[i];
                  if (FD_ISSET(sd, &readfds)){
-                       valread=read(sd, &messageLength, sizeof(int));
+                       valread=recv(sd, (char*)&messageLength, (int)sizeof(int),0);
                        //check if client disconnected
                        if (valread==0){
                              std::cout<<"client disconnected\n";
@@ -145,12 +234,16 @@ void startServer(string ip, int port, void(*serviceHandler)(std::string,SOCKET_T
                              // getpeername name return the address of the client (sd)
                       
                              std::cout<<"host disconnected, ip: "<<inet_ntoa(serverAddr.sin_addr)<<", port: "<<ntohs(serverAddr.sin_port)<<"\n";
-                             close(sd);
+                             #if defined(_WIN32) || defined(_WIN64)
+                                   closesocket(sd);
+                              #elif defined(__linux__)
+                                    close(sd);
+                             #endif
                              /* remove the client from the list */
                              client->clientList.erase(client->clientList.begin()+i);
                        }else{
                               char buffer[messageLength];
-                              read(sd, buffer, messageLength);
+                              recv(sd, buffer, messageLength,0);
                               std::string message=buffer;
 
                               std::cout<<"message from client: "<<message << " in " << messageLength<<"\n";
@@ -163,7 +256,14 @@ void startServer(string ip, int port, void(*serviceHandler)(std::string,SOCKET_T
                  }
            }
       }
-        delete client;
+      #if defined(_WIN32) || defined(_WIN64)
+            closesocket(sd);
+            WSACleanup();
+      #elif defined(__linux__)
+            close(sd);
+      #endif
+      
+      delete client;
 }
 
 void response(string message,SOCKET_TYPE dt){
@@ -174,10 +274,10 @@ void response(string message,SOCKET_TYPE dt){
 
       int i = 0;
       for(char x : message){
-         sendBuffer[4 + i] = x;
-         i++;
+            sendBuffer[4 + i] = x;
+            i++;
       }
 
-      write(dt, sendBuffer, messageLength + 4);
+      send(dt, sendBuffer, messageLength + 4,0);
       free(sendBuffer);
 }

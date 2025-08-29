@@ -1,1 +1,1 @@
-g++ client.cpp requestWin.cpp -std=c++11 -lws2_32 -o client.exe
+g++ client.cpp request.cpp -std=c++11 -lws2_32 -o client.exe

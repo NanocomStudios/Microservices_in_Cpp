@@ -1,1 +1,1 @@
-g++ microservice.cpp serverWin.cpp -std=c++11 -lws2_32 -o server.exe
+g++ microservice.cpp server.cpp -std=c++11 -lws2_32 -o server.exe
