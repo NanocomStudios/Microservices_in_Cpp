@@ -2,11 +2,11 @@
 #include <string>
 
 #include "server.h"
-#include "request.h"
+// #include "request.h"
 
 using namespace std;
 
-void serviceHandler(string msg,int sd){
+void serviceHandler(string msg,SOCKET_TYPE sd){
     cout << msg << endl;
     response(msg, sd);
 }

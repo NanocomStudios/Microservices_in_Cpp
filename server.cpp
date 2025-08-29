@@ -28,7 +28,7 @@ struct clientDetails{
 };
 
 
-void startServer(string ip, int port, void(*serviceHandler)(std::string,int),int backlog){
+void startServer(string ip, int port, void(*serviceHandler)(std::string,SOCKET_TYPE),int backlog){
       // creating a clientDetails object{
       auto client= new clientDetails();
 
@@ -166,7 +166,7 @@ void startServer(string ip, int port, void(*serviceHandler)(std::string,int),int
         delete client;
 }
 
-void response(string message,int dt){
+void response(string message,SOCKET_TYPE dt){
       int messageLength = message.length() + 1; // +1 for null terminator
 
       char* sendBuffer = (char*)calloc(1, messageLength + 4);
